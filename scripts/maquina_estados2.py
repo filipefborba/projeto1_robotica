@@ -1,6 +1,3 @@
-#! /usr/bin/env python
-# -*- coding:utf-8 -*-
-
 #!/usr/bin/env python
 
 import roslib
@@ -108,7 +105,7 @@ class Girando(smach.State):
         else:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             velocidade_saida.publish(vel)
-            return ('alinhou')
+            return ('alinhou')    
 
 # main
 def main():
@@ -125,18 +122,18 @@ def main():
     # Open the container
     with sm:
         # Add states to the container
-        smach.StateMachine.add('LONGE', Longe(),
-                               transitions={'ainda_longe':'ANDANDO',
+        smach.StateMachine.add('LONGE', Longe(), 
+                               transitions={'ainda_longe':'ANDANDO', 
                                             'perto':'GIRANDO'})
-        smach.StateMachine.add('ANDANDO', Andando(),
+        smach.StateMachine.add('ANDANDO', Andando(), 
                                transitions={'ainda_longe':'LONGE'})
         smach.StateMachine.add('GIRANDO', Girando(),
                                 transitions={'alinhando': 'GIRANDO',
                                 'alinhou':'LONGE2'})
-        smach.StateMachine.add('LONGE2', Longe(),
-                               transitions={'ainda_longe':'ANDANDO2',
+        smach.StateMachine.add('LONGE2', Longe(), 
+                               transitions={'ainda_longe':'ANDANDO2', 
                                             'perto':'terminei'})
-        smach.StateMachine.add('ANDANDO2', Andando(),
+        smach.StateMachine.add('ANDANDO2', Andando(), 
                                transitions={'ainda_longe':'LONGE2'})
 
 
