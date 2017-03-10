@@ -1,5 +1,7 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
+# -*- coding:utf-8 -*-
 
+#Vários imports...
 import roslib
 import rospy
 import sys
@@ -19,17 +21,21 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header
 
+#Aqui setamos as variáveis iniciais. O neato vai atualizando
 x = 0
 y = 0
 z = 100
 id = 0
 ang = -500
+
+#Quão perto queremos que ele fique dos objetos. Servem para os "if's"
 x_desejado = 0.12
 y_desejado = 0.10
 z_desejado = 1.00
 tfl = 0
 
-def recebe(msg):
+#Função que procura o marcador
+def procurando_marcador(msg):
     global x
     global y
     global z
@@ -60,14 +66,15 @@ def recebe(msg):
 
 
 #Classe que faz o robô girar
-class Spin(smach.State):
+class Girando(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['ainda_longe','perto'])
-
     def execute(self, userdata):
         global velocidade_saida
         rospy.loginfo('Executing state SPIN')
         if x > x_desejado:
+            #Esse Vector3(vel linear, x, vel angular);
+            #roda como o ciclo trigonométrico
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.5))
             velocidade_saida.publish(vel)
             return 'ainda_longe'
@@ -76,28 +83,30 @@ class Spin(smach.State):
             velocidade_saida.publish(vel)
             return 'perto'
 
-# main
+#Classe que roda o programa inteiro quando executado no terminal
 def main():
     global velocidade_saida
     global buffer
-    rospy.init_node('smach_example_state_machine')
-    velocidade_saida = rospy.Publisher("/cmd_vel", Twist, queue_size = 1)
+    rospy.init_node('smach_example_state_machine') #Precisa disso para rodar!
+    velocidade_saida = rospy.Publisher("/cmd_vel", Twist, queue_size = 1) #Velocidade do robô
 
-    # Create a SMACH state machine
+    #Cria a Máquina de Estados
     sm = smach.StateMachine(outcomes=['girando'])
 
-    # Open the container
+    #Utilizando a máquina
     with sm:
-        # Add states to the container
-        smach.StateMachine.add('SPIN', Spin(),
-                               transitions={'ainda_longe':'SPIN',
-                                            'perto':'SPIN'})
+        #Adicionando estados para a máquina: (Nome, Classe, transitions={})
+        #transitions disso para isso {'disso' : 'isso'}
+        smach.StateMachine.add('GIRANDO', Girando(),
+                               transitions={'ainda_longe':'GIRANDO',
+                                            'perto':'GIRANDO'})
 
 
-    # Execute SMACH plan
+    #Executa as máquinas
     outcome = sm.execute()
     #rospy.spin()
 
 
+#Apenas pra ver se está rodando o arquivo original
 if __name__ == '__main__':
     main()
