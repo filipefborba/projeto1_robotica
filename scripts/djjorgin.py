@@ -66,40 +66,58 @@ def procurando_marcador(msg):
 
 
 #Classe que faz o robô girar
-class Girando(smach.State):
+class Spin(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['ainda_longe','perto'])
+        smach.State.__init__(self, outcomes=['still_far','close_enough'])
     def execute(self, userdata):
-        global velocidade_saida
+        global speed
         rospy.loginfo('Executing state SPIN')
         if x > x_desejado:
-            #Esse Vector3(vel linear, x, vel angular);
-            #roda como o ciclo trigonométrico
-            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.5))
-            velocidade_saida.publish(vel)
-            return 'ainda_longe'
+            #Esse Vector3(vel linear, x, vel angular); roda como o ciclo trigonométrico; + = sentido anti-horário, - = horário
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.2))
+            speed.publish(vel)
+            return 'still_far'
         else:
-            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.5))
-            velocidade_saida.publish(vel)
-            return 'perto'
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.2))
+            speed.publish(vel)
+            return 'close_enough'
+
+class MoveForward(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['move','crash'])
+
+    def execute(self, userdata):
+        if """bumper bater em algo OR sensor receber que robo está proximo de obstáculo""":
+            speed = Twist(Vector3(0, 0, 0), Vector3(-1, 0, 0)) #Parar
+            """andar para tras"""
+            return 'crash'
+        else:
+            """andar normalmente"""
+            speed = Twist(Vector3(0, 0, 0), Vector3(0.5, 0, 0)) #Andar para frente
+            return 'move'
 
 #Classe que roda o programa inteiro quando executado no terminal
 def main():
-    global velocidade_saida
+    global speed
     global buffer
     rospy.init_node('smach_example_state_machine') #Precisa disso para rodar!
-    velocidade_saida = rospy.Publisher("/cmd_vel", Twist, queue_size = 1) #Velocidade do robô
+    speed = rospy.Publisher('/cmd_vel', Twist, queue_size=1) #Velocidade do robô
+    bumper = rospy.Publisher('/bump', Twist, queue_size=1)
+    laser = rospy.Publisher('/scan', Twist, queue_size=1)
 
     #Cria a Máquina de Estados
-    sm = smach.StateMachine(outcomes=['girando'])
+    sm = smach.StateMachine(outcomes=['spin'])
 
     #Utilizando a máquina
     with sm:
-        #Adicionando estados para a máquina: (Nome, Classe, transitions={})
-        #transitions disso para isso {'disso' : 'isso'}
-        smach.StateMachine.add('GIRANDO', Girando(),
-                               transitions={'ainda_longe':'GIRANDO',
-                                            'perto':'GIRANDO'})
+        #Adicionando estados para a máquina: (Nome, Classe, transitions={}); transitions disso para isso {'disso' : 'isso'}
+        smach.StateMachine.add('SURVIVALBUMP', SurvivalBump(),
+                               transitions={'crash':'SPIN',
+                                            'not_crash':'SPIN'})
+
+        smach.StateMachine.add('SPIN', Spin(),
+                               transitions={'still_far':'SPIN',
+                                            'close_enough':'SPIN'})
 
 
     #Executa as máquinas
