@@ -82,6 +82,7 @@ class Spin(smach.State):
             speed.publish(vel)
             return 'close_enough'
 
+#Andar para frente
 class MoveForward(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['move','crash'])
@@ -90,11 +91,11 @@ class MoveForward(smach.State):
         if """bumper bater em algo OR sensor receber que robo está proximo de obstáculo""":
             speed = Twist(Vector3(0, 0, 0), Vector3(-1, 0, 0)) #Parar
             """andar para tras"""
-            return 'crash'
+            return 'crash' #Significa que ele bateu e parou
         else:
             """andar normalmente"""
             speed = Twist(Vector3(0, 0, 0), Vector3(0.5, 0, 0)) #Andar para frente
-            return 'move'
+            return 'move' #Significa que ele andou
 
 #Classe que roda o programa inteiro quando executado no terminal
 def main():
@@ -111,9 +112,9 @@ def main():
     #Utilizando a máquina
     with sm:
         #Adicionando estados para a máquina: (Nome, Classe, transitions={}); transitions disso para isso {'disso' : 'isso'}
-        smach.StateMachine.add('SURVIVALBUMP', SurvivalBump(),
-                               transitions={'crash':'SPIN',
-                                            'not_crash':'SPIN'})
+        smach.StateMachine.add('MOVEFORWARD', MoveForward(),
+                               transitions={'crash':'STOP',
+                                            'not_crash':'MOVEFORWARD'})
 
         smach.StateMachine.add('SPIN', Spin(),
                                transitions={'still_far':'SPIN',
