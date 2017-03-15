@@ -20,12 +20,12 @@ from ar_track_alvar_msgs.msg import AlvarMarker, AlvarMarkers
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header
-
+from neato_node.msg import Bump
 #Aqui setamos as variáveis iniciais. O neato vai atualizando
 x = 0
 y = 0
 z = 100
-id = 0
+id = []
 ang = -500
 
 #Quão perto queremos que ele fique dos objetos. Servem para os "if's"
@@ -40,10 +40,13 @@ def procurando_marcador(msg):
     global y
     global z
     global ang
+    global speed
+    global id
     for marker in msg.markers:
         x = round(marker.pose.pose.position.x, 2)
         y = round(marker.pose.pose.position.y, 2)
         z = round(marker.pose.pose.position.z, 2)
+        id.append(marker.id)
         if marker.id == 100:
             header = Header(frame_id= "ar_marker_100")
             print("id:", marker.id)
@@ -64,6 +67,8 @@ def procurando_marcador(msg):
             ang = math.degrees(math.acos(cosa))
             print ("angulo", ang)
 
+def bumpers():
+    pass
 
 #Classe que faz o robô girar
 class Spin(smach.State):
@@ -72,7 +77,7 @@ class Spin(smach.State):
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state SPIN')
-        if x > x_desejado:
+        if 1==1:
             #Esse Vector3(vel linear, x, vel angular); roda como o ciclo trigonométrico; + = sentido anti-horário, - = horário
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.2))
             speed.publish(vel)
@@ -86,16 +91,24 @@ class Spin(smach.State):
 class MoveForward(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['move','crash'])
-
     def execute(self, userdata):
-        if """bumper bater em algo OR sensor receber que robo está proximo de obstáculo""":
-            speed = Twist(Vector3(0, 0, 0), Vector3(-1, 0, 0)) #Parar
-            """andar para tras"""
+        global speed
+        global id
+        print(id)
+        if 50 in id:
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            print("Mudei Velocidade")
+            #vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.5))
+            #speed.publish(vel)
+
+            #andar para tras
             return 'crash' #Significa que ele bateu e parou
         else:
-            """andar normalmente"""
-            speed = Twist(Vector3(0, 0, 0), Vector3(0.5, 0, 0)) #Andar para frente
+            #andar normalmente#
+            #speed = Twist(Vector3(0, 0, 0), Vector3(0.5, 0, 0)) #Andar para frente
             return 'move' #Significa que ele andou
+        id = []
 
 #Classe que roda o programa inteiro quando executado no terminal
 def main():
@@ -103,8 +116,10 @@ def main():
     global buffer
     rospy.init_node('smach_example_state_machine') #Precisa disso para rodar!
     speed = rospy.Publisher('/cmd_vel', Twist, queue_size=1) #Velocidade do robô
-    bumper = rospy.Publisher('/bump', Twist, queue_size=1)
+    bumper = rospy.Subscriber('/bump', Twist, queue_size=1)
     laser = rospy.Publisher('/scan', Twist, queue_size=1)
+    recebedor = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, procurando_marcador)
+
 
     #Cria a Máquina de Estados
     sm = smach.StateMachine(outcomes=['spin'])
@@ -113,8 +128,8 @@ def main():
     with sm:
         #Adicionando estados para a máquina: (Nome, Classe, transitions={}); transitions disso para isso {'disso' : 'isso'}
         smach.StateMachine.add('MOVEFORWARD', MoveForward(),
-                               transitions={'crash':'STOP',
-                                            'not_crash':'MOVEFORWARD'})
+                               transitions={'crash':'SPIN',
+                                            'move':'MOVEFORWARD'})
 
         smach.StateMachine.add('SPIN', Spin(),
                                transitions={'still_far':'SPIN',
@@ -124,7 +139,8 @@ def main():
     #Executa as máquinas
     outcome = sm.execute()
     #rospy.spin()
-
+    #while not rospy.is_shutdown():
+    #    rospy.sleep(0.2)
 
 #Apenas pra ver se está rodando o arquivo original
 if __name__ == '__main__':
