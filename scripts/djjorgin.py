@@ -26,8 +26,8 @@ x = 0
 y = 0
 z = 100
 id = []
-bumpers = [] #Lista identificando os bumpers
 ang = -500
+has_bumped = False
 
 #Quão perto queremos que ele fique dos objetos. Servem para os "if's"
 x_desejado = 0.12
@@ -69,9 +69,12 @@ def procurando_marcador(msg):
             print ("angulo", ang)
 
 #Função que detecta o funcionamento dos bumpers
-def bumper_detection(bumps):
-    global bumpers
-    bumpers.append(bumps)
+def bumper_detection(bump):
+    global has_bumped
+    if bump.leftFront or bump.leftSide or bump.rightFront or bump.rightSide:
+        has_bumped = True
+    else:
+        has_bumped = False
 
 def laser_detection(laser_distance):
     global laser_distance
@@ -79,10 +82,15 @@ def laser_detection(laser_distance):
 #Classe que faz o robô girar
 class Spin(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['still_far','close_enough'])
+        smach.State.__init__(self, outcomes=['still_far','close_enough','crash'])
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state SPIN')
+        if has_bumper == True:
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            print("Stopped")
+            return 'crash'
         if x < x_desejado: #Se a posição do marcador estiver boa, roda no sentido contrário que estava girando.
             #Esse Vector3(vel linear, x, vel angular); roda como o ciclo trigonométrico; + = sentido anti-horário, - = horário
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.2))
@@ -99,28 +107,21 @@ class MoveForward(smach.State):
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state MOVEFORWARD')
-        c = 0 #Contador básico
         if laser_distance < 20: #Se dista 20cm de algo sólido, para pra não bater.
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             print("Stopped")
             return 'near_something' #Significa que o laser detectou que o robô está muito perto de algum objeto sólido e para
 
-        for i in bumpers: #Para cada bumper (1 acionado, 0 não-acionado) ele vai checar esse número. Achei que se tivesse uma lista [0,0,1], ele iria se mexer nas duas primeiras iterações e parar só na última, por isso o contador.
-
-            if c == 1:
+        if has_bumper == True:
                 vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
                 speed.publish(vel)
                 print("Stopped")
-                c += 1 #Adiciona ao Contador
-                del bumpers[:] #Reseta a lista dos bumpers
                 return 'crash' #Significa que ele bateu e parou
-            elif c == 0: #Nenhum está acionado porque não entrou no 'if' de cima
-                c = 0
-                speed = Twist(Vector3(0, 0, 0), Vector3(0.2, 0, 0)) #Andar para frente
-                speed.publish(vel)
-                del bumpers[:]
-                return 'move' #Significa que nenhum bumper está acionado e ele anda
+        else: #Nenhum está acionado porque não entrou no 'if' de cima
+            speed = Twist(Vector3(0, 0, 0), Vector3(0.2, 0, 0)) #Andar para frente
+            speed.publish(vel)
+            return 'move' #Significa que nenhum bumper está acionado e ele anda
 
 #Andar pra trás - sobrevivência
 class MovingBack(smach.State):
@@ -152,7 +153,7 @@ def main():
     global buffer
     rospy.init_node('smach_example_state_machine') #Precisa disso para rodar!
     speed = rospy.Publisher('/cmd_vel', Twist, queue_size=1) #Velocidade do robô
-    bumper = rospy.Subscriber('/bump', Twist, queue_size=1, bumper_detection)
+    bumper = rospy.Subscriber('/bump', Bump, queue_size=1, bumper_detection)
     laser = rospy.Subscriber('/scan', Twist, queue_size=1)
     recebedor = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, procurando_marcador)
 
@@ -170,7 +171,8 @@ def main():
 
         smach.StateMachine.add('SPIN', Spin(),
                                transitions={'not_found':'SPIN',
-                                            'found':'MOVEFORWARD'})
+                                            'found':'MOVEFORWARD',
+                                            'crash': 'MOVEBACK'})
         smach.StateMachine.add('TURNINGRANDOM', TurningRandom(),
                                transitions={'sortedturn':'MOVEFORWARD'})
 
