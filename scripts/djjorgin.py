@@ -43,6 +43,9 @@ y_desejado = 0.10
 z_desejado = 1.00
 
 
+frame = "camera_frame"
+
+
 #Função que procura o marcador
 def procurando_marcador(msg):
     global x
@@ -55,12 +58,12 @@ def procurando_marcador(msg):
         id = marker.id
         marcador = "ar_marker_" + str(id)
 
-        print(tf_buffer.can_transform("camera_info", marcador, rospy.Time(0)))
+        print(tf_buffer.can_transform(frame, marcador, rospy.Time(0)))
         header = Header(frame_id=marcador)
         # Procura a transformacao em sistema de coordenadas entre a base do robo e o marcador numero 100
         # Note que para seu projeto 1 voce nao vai precisar de nada que tem abaixo, a 
         # Nao ser que queira levar angulos em conta
-        trans = tf_buffer.lookup_transform("camera_info", marcador, rospy.Time(0))
+        trans = tf_buffer.lookup_transform(frame, marcador, rospy.Time(0))
         
         # Separa as translacoes das rotacoes
         x = trans.transform.translation.x
@@ -95,7 +98,7 @@ def laser_detection(laser):
 #Classe que faz o robô girar
 class Spin(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['not_found','found','crash'])
+        smach.State.__init__(self, outcomes=['not_found','found','crash', 'following'])
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state SPIN')
@@ -108,27 +111,19 @@ class Spin(smach.State):
             print("Stopped")
             id = 0
             return 'crash'
-        if id != 0 :
-            print(x,y,z)
-            rospy.sleep(3)
-            return 'found'
 
         if id != 0:
-            if (x > algumacoisa) and (x < algumacoisa):
+            print(id)
+            if (x > -0.5) and (x < 0.12):
+                id = 0
+                return 'found'
+            elif x < -0.5:
+                vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.2))
+                speed.publish(vel)
+                rospy.sleep(0.1)
+            elif x > 0.12:
                 vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.2))
                 speed.publish(vel)
-                id = 0
-            elif x < algumacoisa:
-                #Gira pro lado xx pra alinhar
-                vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.2))
-                speed.publish(vel)
-                id = 0
-            elif x > algumacoisa:
-                #Gira pro lado -xx pra alinhar
-                vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.2))
-                speed.publish(vel)
-                id = 0
-            return 'found'
         else:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
             speed.publish(vel)
@@ -144,22 +139,25 @@ class MoveForward(smach.State):
         global id
         print x
         rospy.loginfo('Executing state MOVEFORWARD')
-        if laser_detection == True:
+        if 1 == 2:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             print("Stopped")
             return 'near_something' #Significa que o laser detectou que o robô está muito perto de algum objeto sólido e para
 
         if id != 0:
-            vel = Twist(Vector3(0.1, 0, 0), Vector3(0, 0, 0))
+            vel = Twist(Vector3(0.3, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
-            return 'following_marker' #Significa que o laser detectou que o robô está muito perto de algum objeto sólido e para
+            id = 0
+            rospy.sleep(0.3)
+            return 'following_marker' #Segue o marcador
 
         if has_bumped == True: #Se dista 20cm de algo sólido, para pra não bater.
-                vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
-                speed.publish(vel)
-                print("Stopped")
-                return 'crash' #Significa que ele bateu e parou
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            print("Stopped")
+            return 'crash' #Significa que ele bateu e parou
+
         else: #Nenhum está acionado porque não entrou no 'if' de cima
             vel = Twist(Vector3(0.1, 0, 0), Vector3(0, 0, 0)) #Andar para frente
             speed.publish(vel)
@@ -189,7 +187,7 @@ class TurningRandom(smach.State):
         rospy.loginfo('Executing state TURNINGRANDOM')
         vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.5)) #Girar 90 graus
         speed.publish(vel)
-        rospy.sleep(random.randint(1,20)/10)
+        rospy.sleep(random.randint(5,25)/10)
         return 'sortedturn'
 
 #Classe que roda o programa inteiro quando executado no termina1
@@ -202,6 +200,8 @@ def main():
     laser = rospy.Subscriber('/scan', LaserScan, laser_detection)
     recebedor = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, procurando_marcador)
 
+    tfl = tf2_ros.TransformListener(tf_buffer)
+
 
     #Cria a Máquina de Estados
     sm = smach.StateMachine(outcomes=['finish'])
@@ -212,7 +212,8 @@ def main():
         smach.StateMachine.add('SPIN', Spin(),
                                transitions={'not_found':'SPIN',
                                             'found':'MOVEFORWARD',
-                                            'crash': 'MOVEBACK'})
+                                            'crash': 'MOVEBACK',
+                                            'following':'SPIN'})
         smach.StateMachine.add('MOVEFORWARD', MoveForward(),
                                transitions={'near_something': 'TURNINGRANDOM',
                                'crash':'MOVEBACK',
