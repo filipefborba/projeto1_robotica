@@ -14,6 +14,7 @@ import transformations
 from tf import TransformerROS
 import tf2_ros
 import math
+import random
 import time
 from geometry_msgs.msg import Twist, Vector3, Pose, Vector3Stamped
 from ar_track_alvar_msgs.msg import AlvarMarker, AlvarMarkers
@@ -21,6 +22,7 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header
 from neato_node.msg import Bump
+
 #Aqui setamos as variáveis iniciais. O neato vai atualizando
 x = 0
 y = 0
@@ -28,6 +30,7 @@ z = 100
 id = []
 ang = -500
 has_bumped = False
+laser_distance = 0
 
 #Quão perto queremos que ele fique dos objetos. Servem para os "if's"
 x_desejado = 0.12
@@ -48,25 +51,8 @@ def procurando_marcador(msg):
         y = round(marker.pose.pose.position.y, 2)
         z = round(marker.pose.pose.position.z, 2)
         id.append(marker.id)
-        if marker.id == 100:
-            header = Header(frame_id= "ar_marker_100")
-            print("id:", marker.id)
-            can_transf = buffer.can_transform("base_link", "ar_marker_100", rospy.Time(0))
-            print("can:",can_transf)
-            # if can_transf == False:
-            #     sys.exit(0)
-            # else:
-            #     print("Can Transf = True")
-            trans = buffer.lookup_transform("base_link", "ar_marker_100", rospy.Time(0))
-            t = transformations.translation_matrix([trans.transform.translation.x, trans.transform.translation.y, trans.transform.translation.z])
-            r = transformations.quaternion_matrix([trans.transform.rotation.x, trans.transform.rotation.y, trans.transform.rotation.z, trans.transform.rotation.w])
-            m = numpy.dot(r,t)
-            v2 = numpy.dot(m,[0,0,1,0])
-            v2_n = v2[0:-1]
-            n2 = v2_n/linalg.norm(v2_n)
-            cosa = numpy.dot(n2,[1,0,0])
-            ang = math.degrees(math.acos(cosa))
-            print ("angulo", ang)
+        print(marker.id)
+
 
 #Função que detecta o funcionamento dos bumpers
 def bumper_detection(bump):
@@ -76,17 +62,16 @@ def bumper_detection(bump):
     else:
         has_bumped = False
 
-def laser_detection(laser_distance):
-    global laser_distance
+#def laser_detection(laser_distance):
 
 #Classe que faz o robô girar
 class Spin(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['still_far','close_enough','crash'])
+        smach.State.__init__(self, outcomes=['not_found','found','crash'])
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state SPIN')
-        if has_bumper == True:
+        if has_bumped == True:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             print("Stopped")
@@ -106,33 +91,36 @@ class MoveForward(smach.State):
         smach.State.__init__(self, outcomes=['move','crash', 'near_something'])
     def execute(self, userdata):
         global speed
+        global has_bumped
+        global id
         rospy.loginfo('Executing state MOVEFORWARD')
-        if laser_distance < 20: #Se dista 20cm de algo sólido, para pra não bater.
+        if 50 in id:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             print("Stopped")
             return 'near_something' #Significa que o laser detectou que o robô está muito perto de algum objeto sólido e para
 
-        if has_bumper == True:
+        if has_bumped == True: #Se dista 20cm de algo sólido, para pra não bater.
                 vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
                 speed.publish(vel)
                 print("Stopped")
                 return 'crash' #Significa que ele bateu e parou
         else: #Nenhum está acionado porque não entrou no 'if' de cima
-            speed = Twist(Vector3(0, 0, 0), Vector3(0.2, 0, 0)) #Andar para frente
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0)) #Andar para frente
             speed.publish(vel)
             return 'move' #Significa que nenhum bumper está acionado e ele anda
 
 #Andar pra trás - sobrevivência
-class MovingBack(smach.State):
+class MoveBack(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['moved_back'])
 
     def execute(self, userdata):
         global speed
-        rospy.loginfo('Executing state MOVINGBACK')
-        vel = Twist(Vector3(-0.8, 0, 0), Vector3(0, 0, 0)) #Andar para trás reto
+        rospy.loginfo('Executing state MOVEBACK')
+        vel = Twist(Vector3(-0.2, 0, 0), Vector3(0, 0, 0)) #Andar para trás reto
         speed.publish(vel)
+        rospy.sleep(1)
         return 'moved_back'
 
 #Gira 90 graus para algum lado
@@ -143,17 +131,18 @@ class TurningRandom(smach.State):
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state TURNINGRANDOM')
-        vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, (radians(randint(45, 315))))) #Girar 90 graus
-        speed.publish(speed)
+        vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.5)) #Girar 90 graus
+        speed.publish(vel)
+        rospy.sleep(0.7)
         return 'sortedturn'
 
-#Classe que roda o programa inteiro quando executado no terminal
+#Classe que roda o programa inteiro quando executado no termina1
 def main():
     global speed
     global buffer
     rospy.init_node('smach_example_state_machine') #Precisa disso para rodar!
     speed = rospy.Publisher('/cmd_vel', Twist, queue_size=1) #Velocidade do robô
-    bumper = rospy.Subscriber('/bump', Bump, queue_size=1, bumper_detection)
+    bumper = rospy.Subscriber('/bump', Bump, bumper_detection)
     laser = rospy.Subscriber('/scan', Twist, queue_size=1)
     recebedor = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, procurando_marcador)
 
@@ -176,8 +165,8 @@ def main():
         smach.StateMachine.add('TURNINGRANDOM', TurningRandom(),
                                transitions={'sortedturn':'MOVEFORWARD'})
 
-        smach.StateMachine.add('MOVEBACK', MOVEBACK(),
-                       transitions={'moved_back':'SPIN'})
+        smach.StateMachine.add('MOVEBACK', MoveBack(),
+                       transitions={'moved_back':'TURNINGRANDOM'})
     #Executa as máquinas
     outcome = sm.execute()
     #rospy.spin()
