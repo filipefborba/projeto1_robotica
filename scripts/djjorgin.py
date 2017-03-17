@@ -68,9 +68,13 @@ def procurando_marcador(msg):
             ang = math.degrees(math.acos(cosa))
             print ("angulo", ang)
 
+#Função que detecta o funcionamento dos bumpers
 def bumper_detection(bumps):
     global bumpers
     bumpers.append(bumps)
+
+def laser_detection(laser_distance):
+    global laser_distance
 
 #Classe que faz o robô girar
 class Spin(smach.State):
@@ -79,17 +83,16 @@ class Spin(smach.State):
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state SPIN')
-        if 1==1:
+        if x < x_desejado: #Se a posição do marcador estiver boa, roda no sentido contrário que estava girando.
             #Esse Vector3(vel linear, x, vel angular); roda como o ciclo trigonométrico; + = sentido anti-horário, - = horário
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.2))
             speed.publish(vel)
-            return 'still_far'
+            return 'found'
         else:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.2))
             speed.publish(vel)
-            return 'close_enough'
+            return 'not_found'
 
-#Andar para frente
 class MoveForward(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['move','crash', 'near_something'])
@@ -97,21 +100,29 @@ class MoveForward(smach.State):
         global speed
         rospy.loginfo('Executing state MOVEFORWARD')
         c = 0 #Contador básico
+        if laser_distance < 20: #Se dista 20cm de algo sólido, para pra não bater.
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            print("Stopped")
+            return 'near_something' #Significa que o laser detectou que o robô está muito perto de algum objeto sólido e para
+
         for i in bumpers: #Para cada bumper (1 acionado, 0 não-acionado) ele vai checar esse número. Achei que se tivesse uma lista [0,0,1], ele iria se mexer nas duas primeiras iterações e parar só na última, por isso o contador.
-            if i == 1: #Se algum bumper estiver acionado ele para
+
+            if c == 1:
                 vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
                 speed.publish(vel)
                 print("Stopped")
                 c += 1 #Adiciona ao Contador
                 del bumpers[:] #Reseta a lista dos bumpers
                 return 'crash' #Significa que ele bateu e parou
-        if c == 0: #Nenhum está acionado porque não entrou no 'if' de cima
-            c = 0
-            speed = Twist(Vector3(0, 0, 0), Vector3(0.2, 0, 0)) #Andar para frente
-            speed.publish(vel)
-            del bumpers[:]
-            return 'move' #Significa que nenhum bumper está acionado e ele anda
+            elif c == 0: #Nenhum está acionado porque não entrou no 'if' de cima
+                c = 0
+                speed = Twist(Vector3(0, 0, 0), Vector3(0.2, 0, 0)) #Andar para frente
+                speed.publish(vel)
+                del bumpers[:]
+                return 'move' #Significa que nenhum bumper está acionado e ele anda
 
+#Andar pra trás - sobrevivência
 class MovingBack(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['moved_back'])
@@ -121,7 +132,7 @@ class MovingBack(smach.State):
         rospy.loginfo('Executing state MOVINGBACK')
         vel = Twist(Vector3(-0.8, 0, 0), Vector3(0, 0, 0)) #Andar para trás reto
         speed.publish(vel)
-        return moved_back
+        return 'moved_back'
 
 #Gira 90 graus para algum lado
 class TurningRandom(smach.State):
@@ -142,7 +153,7 @@ def main():
     rospy.init_node('smach_example_state_machine') #Precisa disso para rodar!
     speed = rospy.Publisher('/cmd_vel', Twist, queue_size=1) #Velocidade do robô
     bumper = rospy.Subscriber('/bump', Twist, queue_size=1, bumper_detection)
-    laser = rospy.Publisher('/scan', Twist, queue_size=1)
+    laser = rospy.Subscriber('/scan', Twist, queue_size=1)
     recebedor = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, procurando_marcador)
 
 
@@ -174,3 +185,5 @@ def main():
 #Apenas pra ver se está rodando o arquivo original
 if __name__ == '__main__':
     main()
+
+#Falta: achar bumper e laser scan. Quando ele nao acha por um tempo, ele dá uma andada e procura.
