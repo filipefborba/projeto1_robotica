@@ -17,7 +17,7 @@ from std_msgs.msg import Header
 
 x = 0
 y = 0
-z = 0 
+z = 0
 id = 0
 tfl = 0
 
@@ -63,7 +63,7 @@ def recebe(msg):
 			#print (vd)
 
 if __name__=="__main__":
-	global tfl 
+	global tfl
 	global buffer
 	rospy.init_node("marcador")
 	recebedor = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, recebe)

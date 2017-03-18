@@ -42,9 +42,7 @@ x_desejado = 0.12
 y_desejado = 0.10
 z_desejado = 1.00
 
-
 frame = "camera_frame"
-
 
 #Função que procura o marcador
 def procurando_marcador(msg):
@@ -61,16 +59,16 @@ def procurando_marcador(msg):
         print(tf_buffer.can_transform(frame, marcador, rospy.Time(0)))
         header = Header(frame_id=marcador)
         # Procura a transformacao em sistema de coordenadas entre a base do robo e o marcador numero 100
-        # Note que para seu projeto 1 voce nao vai precisar de nada que tem abaixo, a 
+        # Note que para seu projeto 1 voce nao vai precisar de nada que tem abaixo, a
         # Nao ser que queira levar angulos em conta
         trans = tf_buffer.lookup_transform(frame, marcador, rospy.Time(0))
-        
+
         # Separa as translacoes das rotacoes
         x = trans.transform.translation.x
         y = trans.transform.translation.y
         z = trans.transform.translation.z
         # Procura a transformacao em sistema de coordenadas entre a base do robo e o marcador numero 100
-        # Note que para seu projeto 1 voce nao vai precisar de nada que tem abaixo, a 
+        # Note que para seu projeto 1 voce nao vai precisar de nada que tem abaixo, a
         # Nao ser que queira levar angulos em conta
         # Terminamos
         print("id: {} x {} y {} z {}".format(id, x,y,z))
@@ -86,13 +84,16 @@ def bumper_detection(bump):
 
 def laser_detection(laser):
     global laser_distance
-    if laser.ranges[20] != 0 and laser.ranges[-20] != 0:
-        if laser.ranges[20] > laser.ranges[-20]:
-            laser_distance = True
-        else:
-            laser_distance = True
+    laser.angle_min = math.radians(-300) #Angulo que o laser comeca a varrer [radianos]
+    laser.angle_max = math.radians(60) #Angulo onde o laser para de varrer [radianos]
+    #Teremos uma area de varredura de 120 graus, pegando a frente toda
+    laser.range_min = 0.15 #Distancia minima para se considerar [metro]
+    laser.range_min = 2 #Distancia minima para se considerar [metro]
+
+    if min(laser.ranges) < 0.1:
+        laser_distance = True #Se a distancia detectada for menor que 10 cm
     else:
-        laser_distance = False
+         laser_distance = False
 
 
 #Classe que faz o robô girar
@@ -104,8 +105,16 @@ class Spin(smach.State):
         rospy.loginfo('Executing state SPIN')
         global id
         global x, y, z
+
         if has_bumped == True:
             #Vector3(linear, 0 ,0), Vector3(0,0,angular)
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            print("Stopped")
+            id = 0
+            return 'crash'
+
+        if laser_distance == True:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             print("Stopped")
@@ -115,19 +124,16 @@ class Spin(smach.State):
         if id != 0:
             print(id)
             if (x > -0.5) and (x < 0.12):
-                id = 0
                 return 'found'
             elif x < -0.5:
                 vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
                 speed.publish(vel)
                 rospy.sleep(0.1)
-                id = 0
                 return 'following'
             else:
                 vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
                 speed.publish(vel)
                 rospy.sleep(0.1)
-                id = 0
                 return 'following'
         else:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
