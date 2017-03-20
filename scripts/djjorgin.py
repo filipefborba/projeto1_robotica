@@ -84,18 +84,19 @@ def bumper_detection(bump):
 
 def laser_detection(laser):
     global laser_distance
+    laser.angle_min = math.radians(-300) #Angulo que o laser comeca a varrer [radianos]
+    laser.angle_max = math.radians(60) #Angulo onde o laser para de varrer [radianos]
+    #Teremos uma area de varredura de 120 graus, pegando a frente toda
+    laser.range_min = 0.15 #Distancia minima para se considerar [metro]
+    laser.range_min = 2 #Distancia máxima para se considerar [metro]
 
-    # laser.angle_min = math.radians(-300) #Angulo que o laser comeca a varrer [radianos]
-    # laser.angle_max = math.radians(60) #Angulo onde o laser para de varrer [radianos]
-    # #Teremos uma area de varredura de 120 graus, pegando a frente toda
-    # laser.range_min = 0.15 #Distancia minima para se considerar [metro]
-    # laser.range_min = 2 #Distancia minima para se considerar [metro]
-
-    if min(laser.ranges) < 0.1:
-        laser_distance = True #Se a distancia detectada for menor que 10 cm
-    else:
-         laser_distance = False
-
+    if len(laser.ranges) != 0:
+    	if min(laser.ranges) != 0 and < 0.1:
+        	laser_distance = True #Se a distancia detectada for menor que 10 cm
+	    else:
+	        laser_distance = False
+	else:
+		laser_distance = False
 
 #Classe que faz o robô girar
 class Spin(smach.State):
