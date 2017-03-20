@@ -64,9 +64,9 @@ def procurando_marcador(msg):
         trans = tf_buffer.lookup_transform(frame, marcador, rospy.Time(0))
 
         # Separa as translacoes das rotacoes
-        x = trans.transform.translation.x
-        y = trans.transform.translation.y
-        z = trans.transform.translation.z
+        x = trans.transform.translation.x*100
+        y = trans.transform.translation.y*100
+        z = trans.transform.translation.z*100
         # Procura a transformacao em sistema de coordenadas entre a base do robo e o marcador numero 100
         # Note que para seu projeto 1 voce nao vai precisar de nada que tem abaixo, a
         # Nao ser que queira levar angulos em conta
@@ -98,7 +98,6 @@ def laser_detection(laser):
 	else:
 		laser_distance = False
 
-
 #Classe que faz o robô girar
 class Spin(smach.State):
     def __init__(self):
@@ -117,7 +116,7 @@ class Spin(smach.State):
             id = 0
             return 'crash'
 
-        if laser_distance == True:
+        if 1==2:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             print("Stopped")
@@ -126,18 +125,35 @@ class Spin(smach.State):
 
         if id != 0:
             print(id)
-            if (x > -0.5) and (x < 0.12):
-                return 'found'
-            elif x < -0.5:
-                vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
-                speed.publish(vel)
-                rospy.sleep(0.1)
-                return 'following'
-            else:
-                vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
-                speed.publish(vel)
-                rospy.sleep(0.1)
-                return 'following'
+            # if (x > -0.5) and (x < 0.12):
+            if z > 40:
+                if (x > -10) and (x <10):
+                    return 'found'
+                elif x < -4:
+                    vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
+                    speed.publish(vel)
+                    id = 0
+                    rospy.sleep(0.4)
+                    return 'following'
+                else:
+                    vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
+                    speed.publish(vel)
+                    id = 0
+                    return 'following'
+            if z < 40:
+                if (x > -3) and (x < 3):
+                    return 'found'
+                elif x < -3:
+                    vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
+                    speed.publish(vel)
+                    id = 0
+                    rospy.sleep(0.4)
+                    return 'following'
+                elif x > 3:
+                    vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
+                    speed.publish(vel)
+                    id = 0
+                    return 'following'
         else:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
             speed.publish(vel)
@@ -154,7 +170,13 @@ class MoveForward(smach.State):
         global x, y, z
         print(x,y,z)
         rospy.loginfo('Executing state MOVEFORWARD')
-        if 1 == 2:
+
+        if has_bumped == True: #Se dista 20cm de algo sólido, para pra não bater.
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            print("Stopped")
+            return 'crash' #Significa que ele bateu e parou
+        if 1==2:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             print("Stopped")
@@ -167,18 +189,13 @@ class MoveForward(smach.State):
             rospy.sleep(0.5)
             return 'following_marker' #Segue o marcador
 
-        if z < 0.25:
+        if z < 15 :
             return 'finish'
-
-        if has_bumped == True: #Se dista 20cm de algo sólido, para pra não bater.
-            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
-            speed.publish(vel)
-            print("Stopped")
-            return 'crash' #Significa que ele bateu e parou
 
         else: #Nenhum está acionado porque não entrou no 'if' de cima
             vel = Twist(Vector3(0.1, 0, 0), Vector3(0, 0, 0)) #Andar para frente
             speed.publish(vel)
+            rospy.sleep(0.5)
             return 'move' #Significa que nenhum bumper está acionado e ele anda
 
 #Andar pra trás - sobrevivência
@@ -236,7 +253,8 @@ def main():
                                transitions={'near_something': 'TURNINGRANDOM',
                                'crash':'MOVEBACK',
                                'move':'SPIN',
-                               'following_marker':'SPIN'})
+                               'following_marker':'SPIN',
+                               'finish': 'finish'})
 
         smach.StateMachine.add('TURNINGRANDOM', TurningRandom(),
                                transitions={'sortedturn':'SPIN'})
@@ -252,5 +270,3 @@ def main():
 #Apenas pra ver se está rodando o arquivo original
 if __name__ == '__main__':
     main()
-
-#Falta: achar bumper e laser scan. Quando ele nao acha por um tempo, ele dá uma andada e procura.
