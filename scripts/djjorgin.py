@@ -84,19 +84,18 @@ def bumper_detection(bump):
 
 def laser_detection(laser):
     global laser_distance
-    laser.angle_min = math.radians(-300) #Angulo que o laser comeca a varrer [radianos]
-    laser.angle_max = math.radians(60) #Angulo onde o laser para de varrer [radianos]
-    #Teremos uma area de varredura de 120 graus, pegando a frente toda
-    laser.range_min = 0.15 #Distancia minima para se considerar [metro]
-    laser.range_min = 2 #Distancia máxima para se considerar [metro]
 
-    if len(laser.ranges) != 0:
-    	if min(laser.ranges) != 0 and < 0.1:
-        	laser_distance = True #Se a distancia detectada for menor que 10 cm
-	    else:
-	        laser_distance = False
-	else:
-		laser_distance = False
+    # laser.angle_min = math.radians(-300) #Angulo que o laser comeca a varrer [radianos]
+    # laser.angle_max = math.radians(60) #Angulo onde o laser para de varrer [radianos]
+    # #Teremos uma area de varredura de 120 graus, pegando a frente toda
+    # laser.range_min = 0.15 #Distancia minima para se considerar [metro]
+    # laser.range_min = 2 #Distancia minima para se considerar [metro]
+
+    if min(laser.ranges) < 0.1:
+        laser_distance = True #Se a distancia detectada for menor que 10 cm
+    else:
+         laser_distance = False
+
 
 #Classe que faz o robô girar
 class Spin(smach.State):
@@ -123,7 +122,8 @@ class Spin(smach.State):
             id = 0
             return 'crash'
 
-        if id != 0:
+        if id == 100:
+            #Caso não funcione. coloque id != 0 e tire o if id == 150
             print(id)
             # if (x > -0.5) and (x < 0.12):
             if z > 40:
@@ -132,35 +132,40 @@ class Spin(smach.State):
                 elif x < -5:
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
                     speed.publish(vel)
-                    id = 0
-                    rospy.sleep(0.6)
+                    rospy.sleep(0.4)
                     return 'following'
                 elif x > 5:
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
                     speed.publish(vel)
-                    id = 0
-                    rospy.sleep(0.6)
+                    rospy.sleep(0.4)
                     return 'following'
             if z < 40:
                 if (x > -1.5) and (x < 1):
+                    id = 0
                     return 'found'
                 elif x < -1.5:
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
                     speed.publish(vel)
-                    id = 0
-                    rospy.sleep(0.6)
+                    rospy.sleep(0.4)
                     return 'following'
                 elif x > 1:
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
                     speed.publish(vel)
-                    id = 0
-                    rospy.sleep(0.6)
+                    rospy.sleep(0.4)
                     return 'following'
-        if z < 10 and z > 0:
-            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
-            speed.publish(vel)
-            print("Stopped and FINISHED!")
-            return 'finish'
+
+            if z < 15 and z > 0:
+                vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+                speed.publish(vel)
+                print("Stopped and FINISHED!")
+                return 'finish'
+
+            if id == 150:
+                print(id)
+                vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.3))
+                speed.publish(vel)
+                rospy.sleep(0.4)
+                return 'not_found'
 
         else:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
@@ -190,18 +195,11 @@ class MoveForward(smach.State):
             print("Stopped")
             return 'near_something' #Significa que o laser detectou que o robô está muito perto de algum objeto sólido e para
 
-        if id != 0:
-            vel = Twist(Vector3(0.1, 0, 0), Vector3(0, 0, 0))
+        if id == 100:
+            vel = Twist(Vector3(0.15, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
-            id = 0
             rospy.sleep(0.5)
             return 'following_marker' #Segue o marcador
-
-        if z < 10:
-            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
-            speed.publish(vel)
-            print("Stopped")
-            return 'finish'
 
         else: #Nenhum está acionado porque não entrou no 'if' de cima
             vel = Twist(Vector3(0.15, 0, 0), Vector3(0, 0, 0)) #Andar para frente
