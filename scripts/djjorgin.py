@@ -100,7 +100,7 @@ def laser_detection(laser):
 #Classe que faz o robô girar
 class Spin(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['not_found','found','crash','following'])
+        smach.State.__init__(self, outcomes=['not_found','found','crash','following', 'finish'])
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state SPIN')
@@ -126,33 +126,41 @@ class Spin(smach.State):
             print(id)
             # if (x > -0.5) and (x < 0.12):
             if z > 40:
-                if (x > -10) and (x <10):
+                if (x > -5) and (x < 5):
                     return 'found'
-                elif x < -4:
-                    vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
-                    speed.publish(vel)
-                    id = 0
-                    rospy.sleep(0.4)
-                    return 'following'
-                else:
+                elif x < -5:
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
                     speed.publish(vel)
                     id = 0
+                    rospy.sleep(0.6)
+                    return 'following'
+                elif x > 5:
+                    vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
+                    speed.publish(vel)
+                    id = 0
+                    rospy.sleep(0.6)
                     return 'following'
             if z < 40:
-                if (x > -3) and (x < 3):
+                if (x > -1.5) and (x < 1):
                     return 'found'
-                elif x < -3:
-                    vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
-                    speed.publish(vel)
-                    id = 0
-                    rospy.sleep(0.4)
-                    return 'following'
-                elif x > 3:
+                elif x < -1.5:
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
                     speed.publish(vel)
                     id = 0
+                    rospy.sleep(0.6)
                     return 'following'
+                elif x > 1:
+                    vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
+                    speed.publish(vel)
+                    id = 0
+                    rospy.sleep(0.6)
+                    return 'following'
+        if z < 10 and z > 0:
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            print("Stopped and FINISHED!")
+            return 'finish'
+
         else:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
             speed.publish(vel)
@@ -188,11 +196,14 @@ class MoveForward(smach.State):
             rospy.sleep(0.5)
             return 'following_marker' #Segue o marcador
 
-        if z < 15 :
+        if z < 10:
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            print("Stopped")
             return 'finish'
 
         else: #Nenhum está acionado porque não entrou no 'if' de cima
-            vel = Twist(Vector3(0.1, 0, 0), Vector3(0, 0, 0)) #Andar para frente
+            vel = Twist(Vector3(0.15, 0, 0), Vector3(0, 0, 0)) #Andar para frente
             speed.publish(vel)
             rospy.sleep(0.5)
             return 'move' #Significa que nenhum bumper está acionado e ele anda
@@ -247,7 +258,8 @@ def main():
                                transitions={'not_found':'SPIN',
                                             'found':'MOVEFORWARD',
                                             'crash': 'MOVEBACK',
-                                            'following':'MOVEFORWARD'})
+                                            'following':'MOVEFORWARD',
+                                            'finish': 'finish'})
         smach.StateMachine.add('MOVEFORWARD', MoveForward(),
                                transitions={'near_something': 'TURNINGRANDOM',
                                'crash':'MOVEBACK',
