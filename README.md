@@ -1,8 +1,7 @@
-##Projeto 1 - Robô Jorgin
+##Projeto 1 - Comportamento, visão e rastreamento.
 
 ### Descrição
-Utilizando OpenCV, detectar três círculos alinhados, retornar sua distância e a sua orientação.
-
+Utilizando um robô NEATO, reprogramamos as suas máquinas de estados para que ele seguisse um marker e realizasse 2 ações diferentes para os outros 2 markers. Caso o bumper do robô fosse pressionado, ele andar para trás como modo de sobrevivência.
 
 ### Metas
 - [x] Detecta diferentes markers
