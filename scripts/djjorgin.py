@@ -100,7 +100,7 @@ def laser_detection(laser):
 #Classe que faz o robô girar
 class Spin(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['not_found','found','crash','following', 'finish'])
+        smach.State.__init__(self, outcomes=['not_found','found','crash','following', '50', '100', 'finish'])
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state SPIN')
@@ -115,6 +115,31 @@ class Spin(smach.State):
             id = 0
             return 'crash'
 
+        if id == 50:
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 1))
+            speed.publish(vel)
+            rospy.sleep(6.25)
+            print("Marcador 50")
+            id = 0
+            return '50'
+
+        if id == 100:
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 1))
+            speed.publish(vel)
+            rospy.sleep(2)
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -1))
+            speed.publish(vel)
+            rospy.sleep(4)
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 1))
+            speed.publish(vel)
+            rospy.sleep(2)
+            vel = Twist(Vector3(-1, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            rospy.sleep(1)
+            print("Marcador 100")
+            id = 0
+            return '100'
+
         if 1==2:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
@@ -122,7 +147,7 @@ class Spin(smach.State):
             id = 0
             return 'crash'
 
-        if id == 100:
+        if id == 150:
             #Caso não funcione. coloque id != 0 e tire o if id == 150
             print(id)
             # if (x > -0.5) and (x < 0.12):
@@ -154,18 +179,18 @@ class Spin(smach.State):
                     rospy.sleep(0.4)
                     return 'following'
 
-            if z < 15 and z > 0:
+            if z < 17 and z > 0:
                 vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
                 speed.publish(vel)
                 print("Stopped and FINISHED!")
                 return 'finish'
 
-            if id == 150:
-                print(id)
-                vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.3))
-                speed.publish(vel)
-                rospy.sleep(0.4)
-                return 'not_found'
+            # if id == 150:
+            #     print(id)
+            #     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.3))
+            #     speed.publish(vel)
+            #     rospy.sleep(0.4)
+            #     return 'not_found'
 
         else:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
@@ -189,17 +214,25 @@ class MoveForward(smach.State):
             speed.publish(vel)
             print("Stopped")
             return 'crash' #Significa que ele bateu e parou
+            id = 0
+
         if 1==2:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             print("Stopped")
             return 'near_something' #Significa que o laser detectou que o robô está muito perto de algum objeto sólido e para
 
-        if id == 100:
+        if id == 150 and z > 20:
             vel = Twist(Vector3(0.15, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             rospy.sleep(0.5)
             return 'following_marker' #Segue o marcador
+
+        if z < 20 and z > 0:
+            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            print("Stopped and FINISHED!")
+            return 'finish'
 
         else: #Nenhum está acionado porque não entrou no 'if' de cima
             vel = Twist(Vector3(0.15, 0, 0), Vector3(0, 0, 0)) #Andar para frente
@@ -258,6 +291,8 @@ def main():
                                             'found':'MOVEFORWARD',
                                             'crash': 'MOVEBACK',
                                             'following':'MOVEFORWARD',
+                                            '50': 'SPIN',
+                                            '100': 'SPIN',
                                             'finish': 'finish'})
         smach.StateMachine.add('MOVEFORWARD', MoveForward(),
                                transitions={'near_something': 'TURNINGRANDOM',
