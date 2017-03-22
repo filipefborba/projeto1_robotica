@@ -126,14 +126,17 @@ class Spin(smach.State):
         if id == 100:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 1))
             speed.publish(vel)
-            rospy.sleep(2)
+            rospy.sleep(1)
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -1))
             speed.publish(vel)
-            rospy.sleep(4)
+            rospy.sleep(2)
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 1))
             speed.publish(vel)
-            rospy.sleep(2)
+            rospy.sleep(1)
             vel = Twist(Vector3(-1, 0, 0), Vector3(0, 0, 0))
+            speed.publish(vel)
+            rospy.sleep(1)
+            vel = Twist(Vector3(1, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             rospy.sleep(1)
             print("Marcador 100")
@@ -153,16 +156,19 @@ class Spin(smach.State):
             # if (x > -0.5) and (x < 0.12):
             if z > 40:
                 if (x > -5) and (x < 5):
+                    id = 0
                     return 'found'
                 elif x < -5:
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
                     speed.publish(vel)
                     rospy.sleep(0.4)
+                    id = 0
                     return 'following'
                 elif x > 5:
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
                     speed.publish(vel)
                     rospy.sleep(0.4)
+                    id = 0
                     return 'following'
             if z < 40:
                 if (x > -1.5) and (x < 1):
@@ -172,14 +178,16 @@ class Spin(smach.State):
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0.1))
                     speed.publish(vel)
                     rospy.sleep(0.4)
+                    id = 0
                     return 'following'
                 elif x > 1:
                     vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, -0.1))
                     speed.publish(vel)
                     rospy.sleep(0.4)
+                    id = 0
                     return 'following'
 
-            if z < 17 and z > 0:
+            if z < 15 and z > 0:
                 vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
                 speed.publish(vel)
                 print("Stopped and FINISHED!")
@@ -228,7 +236,7 @@ class MoveForward(smach.State):
             rospy.sleep(0.5)
             return 'following_marker' #Segue o marcador
 
-        if z < 20 and z > 0:
+        if z < 15 and z > 0:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
             speed.publish(vel)
             print("Stopped and FINISHED!")
