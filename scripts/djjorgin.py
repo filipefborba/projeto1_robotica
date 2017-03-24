@@ -84,28 +84,28 @@ def bumper_detection(bump):
 
 def laser_detection(laser):
     global laser_distance
-
-    # laser.angle_min = math.radians(-300) #Angulo que o laser comeca a varrer [radianos]
-    # laser.angle_max = math.radians(60) #Angulo onde o laser para de varrer [radianos]
-    # #Teremos uma area de varredura de 120 graus, pegando a frente toda
-    # laser.range_min = 0.15 #Distancia minima para se considerar [metro]
-    # laser.range_min = 2 #Distancia minima para se considerar [metro]
-
-    if min(laser.ranges) < 0.1:
-        laser_distance = True #Se a distancia detectada for menor que 10 cm
-    else:
-         laser_distance = False
+    ranges = list(laser.ranges)
+    print(len(ranges))
+    for d in ranges[140:260]: #Anda pra trás
+        if d < 0.5 and d != 0:
+            laser_distance = 2
+            break
+    for d in ranges[0:140] + ranges[260:361]: #Anda pra frente
+        if d < 0.25 and d != 0:
+            laser_distance = 1
+            break
 
 
 #Classe que faz o robô girar
 class Spin(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['not_found','found','crash','following', '50', '100', 'finish'])
+        smach.State.__init__(self, outcomes=['not_found','found','crash', 'crash_back', 'following', '50', '100', 'finish'])
     def execute(self, userdata):
         global speed
         rospy.loginfo('Executing state SPIN')
         global id
         global x, y, z
+        global laser_distance
 
         if has_bumped == True:
             #Vector3(linear, 0 ,0), Vector3(0,0,angular)
@@ -114,6 +114,11 @@ class Spin(smach.State):
             print("Stopped")
             id = 0
             return 'crash'
+
+        if laser_distance == 1:
+            id = 0
+            laser_distance = 0
+            return 'crash_back'
 
         if id == 50:
             vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 1))
@@ -142,13 +147,6 @@ class Spin(smach.State):
             print("Marcador 100")
             id = 0
             return '100'
-
-        if 1==2:
-            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
-            speed.publish(vel)
-            print("Stopped")
-            id = 0
-            return 'crash'
 
         if id == 150:
             #Caso não funcione. coloque id != 0 e tire o if id == 150
@@ -207,11 +205,11 @@ class Spin(smach.State):
 
 class MoveForward(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['move','crash', 'near_something', 'following_marker', 'finish'])
+        smach.State.__init__(self, outcomes=['move', 'crash', 'following_marker', 'finish'])
     def execute(self, userdata):
         global speed
         global has_bumped
-        global laser_detection
+        global laser_distance
         global id
         global x, y, z
         print(x,y,z)
@@ -223,12 +221,6 @@ class MoveForward(smach.State):
             print("Stopped")
             return 'crash' #Significa que ele bateu e parou
             id = 0
-
-        if 1==2:
-            vel = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
-            speed.publish(vel)
-            print("Stopped")
-            return 'near_something' #Significa que o laser detectou que o robô está muito perto de algum objeto sólido e para
 
         if id == 150 and z > 20:
             vel = Twist(Vector3(0.15, 0, 0), Vector3(0, 0, 0))
@@ -245,7 +237,7 @@ class MoveForward(smach.State):
         else: #Nenhum está acionado porque não entrou no 'if' de cima
             vel = Twist(Vector3(0.15, 0, 0), Vector3(0, 0, 0)) #Andar para frente
             speed.publish(vel)
-            rospy.sleep(0.5)
+            rospy.sleep(0.3)
             return 'move' #Significa que nenhum bumper está acionado e ele anda
 
 #Andar pra trás - sobrevivência
@@ -298,13 +290,13 @@ def main():
                                transitions={'not_found':'SPIN',
                                             'found':'MOVEFORWARD',
                                             'crash': 'MOVEBACK',
+                                            'crash_back': 'MOVEFORWARD',
                                             'following':'MOVEFORWARD',
                                             '50': 'SPIN',
                                             '100': 'SPIN',
                                             'finish': 'finish'})
         smach.StateMachine.add('MOVEFORWARD', MoveForward(),
-                               transitions={'near_something': 'TURNINGRANDOM',
-                               'crash':'MOVEBACK',
+                               transitions={'crash':'MOVEBACK',
                                'move':'SPIN',
                                'following_marker':'SPIN',
                                'finish': 'finish'})
